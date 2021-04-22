@@ -225,8 +225,10 @@ def extractFeats(signal):
 # fourG(motion_2_emg_pre, motion_2_emg_post, 'hand extension')
 # print('hi')
 
-subj1_pre = loadmat('p2_subject1Pre.mat')
-data = subj1_pre['subject1Pre']
+# subj1_pre = loadmat('p2_subject1Pre.mat')
+# data = subj1_pre['subject1Pre']
+subj1_post = loadmat('p2_subject1Post.mat')
+data = subj1_post['subject1Post']
 data = data['MI'][0][0][0]
 shortest_array = []
 for i in range(3):
@@ -281,7 +283,18 @@ for i in range(len(targetValue)):
     targetValue[i] = int(2)
 features_motion2 = np.hstack((features_motion2,targetValue))
 data = np.vstack((features_motion1,features_motion2))
-print('hi')
 
 
-# make classifier now 
+# make classifier now
+from sklearn.model_selection import train_test_split
+X = data[:,:12]
+y = data[:,12:]
+X_train, X_test, y_train, y_test = train_test_split( X, y, test_size=0.33, random_state=42)
+
+from sklearn.svm import SVC
+from sklearn import metrics
+
+model = SVC(kernel='poly', C=2500)
+model.fit(X_train,y_train)
+y_pred = model.predict(X_test)
+print("SVM Accuracy:", metrics.accuracy_score(y_test,y_pred))
