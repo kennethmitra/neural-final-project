@@ -42,8 +42,11 @@ def getShortest(run):
     emg = run['emg']
     triggers = run['hdr']['triggers'][0][0]
     indicies = np.array([i for i, x in enumerate(triggers) if x != 0])
-    indicies = indicies[3:]
+    #indicies = indicies[3:]
     shortest = np.inf
+    # for x in range(0, len(indicies)):
+    #     print(triggers[indicies[x]])
+    # print('hi-----------------')
 
     for x in range(0, len(indicies)):
         trig_val = triggers[indicies[x]]
@@ -53,7 +56,7 @@ def getShortest(run):
             segment = emg[trig_index:trig_index_end]
             if len(segment) < shortest:
                 shortest = len(segment)
-        elif trig_val == 202:
+        elif trig_val == 201:
             trig_index_end = indicies[x + 1]
             segment = emg[trig_index:trig_index_end]
             if len(segment) < shortest:
@@ -168,133 +171,39 @@ def fourG(master, post, name):
     plt.show()
 
 
-def extractFeats(signal):
-    WSize = .300
-    Olap = .825
-    fs = 512
-    import math
-    WSize = math.floor(WSize * fs)
-    nOlap = math.floor(Olap * WSize)
-    hop = WSize - nOlap
-    nx = len(signal)
-    length = int(np.fix((nx - (WSize - hop)) / hop))
 
-    MAV_feature = np.zeros(shape=(length, 4))
-    VAR_feature = np.zeros(shape=(length, 4))
-    WL_feature = np.zeros(shape=(length, 4))
-    for i in range(1, length + 1):
-        s = ((i - 1) * hop + 1)
-        e = min((i - 1) * hop + WSize, len(signal))
-        segment = signal[s:e, :]
-        MAV_feature[i - 1] = np.mean(np.abs(segment), axis=0)
-        VAR_feature[i - 1] = (np.std(segment, axis=0)) ** 2
-        WL_feature[i - 1] = np.sum(np.abs(np.diff(segment, axis=0)), axis=0)
-    features = np.hstack((MAV_feature, VAR_feature, WL_feature))
-    return features
 
 
 # Extract all MEP's and put them in a matrix for comparison
-# subj1_pre = loadmat('p2_subject1Pre.mat')
-# data = subj1_pre['subject1Pre']
-# data = data['MI'][0][0][0]
-# motion_1_emg_pre = np.zeros(shape=(30, LENGTH, 4))
-# motion_2_emg_pre = np.zeros(shape=(30, LENGTH, 4))
-# j = 0
-# for i in range(3):
-#     run = data[i]
-#     m1, m2 = func(run)
-#     for k in range(10):
-#         motion_1_emg_pre[j] = m1[k]
-#         motion_2_emg_pre[j] = m2[k]
-#         j += 1
-#
-# subj1_post = loadmat('p2_subject1Post.mat')
-# data = subj1_post['subject1Post']
-# data = data['MI'][0][0][0]
-# motion_1_emg_post = np.zeros(shape=(30, LENGTH, 4))
-# motion_2_emg_post = np.zeros(shape=(30, LENGTH, 4))
-# j = 0
-# for i in range(3):
-#     run = data[i]
-#     m1, m2 = func(run)
-#     for k in range(10):
-#         motion_1_emg_post[j] = m1[k]
-#         motion_2_emg_post[j] = m2[k]
-#         j += 1
-# fourG(motion_1_emg_pre, motion_1_emg_post, 'hand flexion')
-# fourG(motion_2_emg_pre, motion_2_emg_post, 'hand extension')
-# print('hi')
-
-# subj1_pre = loadmat('p2_subject1Pre.mat')
-# data = subj1_pre['subject1Pre']
-subj1_post = loadmat('p2_subject1Post.mat')
-data = subj1_post['subject1Post']
+subj1_pre = loadmat('p2_subject1Pre.mat')
+data = subj1_pre['subject1Pre']
 data = data['MI'][0][0][0]
-shortest_array = []
-for i in range(3):
-    run = data[i]
-    shortest_i = getShortest(run)
-    shortest_array.append([shortest_i])
-shortest = min(shortest_array)[0]
-
-motion_1_emg_pre = np.zeros(shape=(30, shortest, 4))
-motion_2_emg_pre = np.zeros(shape=(30, shortest, 4))
+motion_1_emg_pre = np.zeros(shape=(30, LENGTH, 4))
+motion_2_emg_pre = np.zeros(shape=(30, LENGTH, 4))
 j = 0
 for i in range(3):
     run = data[i]
-    m1, m2 = getTaskExecutions(run, shortest)
+    m1, m2 = func(run)
     for k in range(10):
         motion_1_emg_pre[j] = m1[k]
         motion_2_emg_pre[j] = m2[k]
         j += 1
-features_motion1 = np.zeros(shape=(1, 12))
-features_motion2 = np.zeros(shape=(1, 12))
 
-for i in range(30):
-    feature_i_1 = extractFeats(motion_1_emg_pre[i])
-    feature_i_2 = extractFeats(motion_2_emg_pre[i])
-
-    features_motion1 = np.vstack((features_motion1, feature_i_1))
-    features_motion2 = np.vstack((features_motion2, feature_i_2))
-
-features_motion1 = features_motion1[1:, :]
-features_motion2 = features_motion2[1:, :]
-
-# create feature scatter plots
-
-# for i in range(4):
-#     sensor_i_mav_1 = features_motion1[:, 0 + i]
-#     sensor_i_var_1 = features_motion1[:, 8 + i]
-#     sensor_i_mav_2 = features_motion2[:, 0 + i]
-#     sensor_i_var_2 = features_motion2[:, 8 + i]
-#     plt.scatter(sensor_i_mav_1,sensor_i_var_1)
-#     plt.scatter(sensor_i_mav_2,sensor_i_var_2)
-#     plt.xlabel("MAV")
-#     plt.ylabel("VAR")
-#     plt.legend(['hand flexion','hand extension'])
-#     plt.title(f'sensor {i+1} MAV vs VAR')
-#     plt.show()
-
-targetValue = np.zeros(shape = (features_motion1.shape[0],1))
-for i in range(len(targetValue)):
-    targetValue[i] = int(1)
-features_motion1 = np.hstack((features_motion1,targetValue))
-for i in range(len(targetValue)):
-    targetValue[i] = int(2)
-features_motion2 = np.hstack((features_motion2,targetValue))
-data = np.vstack((features_motion1,features_motion2))
+subj1_post = loadmat('p2_subject1Post.mat')
+data = subj1_post['subject1Post']
+data = data['MI'][0][0][0]
+motion_1_emg_post = np.zeros(shape=(30, LENGTH, 4))
+motion_2_emg_post = np.zeros(shape=(30, LENGTH, 4))
+j = 0
+for i in range(3):
+    run = data[i]
+    m1, m2 = func(run)
+    for k in range(10):
+        motion_1_emg_post[j] = m1[k]
+        motion_2_emg_post[j] = m2[k]
+        j += 1
+fourG(motion_1_emg_pre, motion_1_emg_post, 'hand flexion')
+fourG(motion_2_emg_pre, motion_2_emg_post, 'hand extension')
+print('hi')
 
 
-# make classifier now
-from sklearn.model_selection import train_test_split
-X = data[:,:12]
-y = data[:,12:]
-X_train, X_test, y_train, y_test = train_test_split( X, y, test_size=0.33, random_state=42)
-
-from sklearn.svm import SVC
-from sklearn import metrics
-
-model = SVC(kernel='poly', C=2500)
-model.fit(X_train,y_train)
-y_pred = model.predict(X_test)
-print("SVM Accuracy:", metrics.accuracy_score(y_test,y_pred))
