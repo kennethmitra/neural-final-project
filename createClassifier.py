@@ -89,6 +89,45 @@ def getShortest(run):
     return shortest
 
 
+def getPSD(data, label):
+    shortest_array = []
+    for i in range(3):
+        run = data[i]
+        shortest_i = getShortest(run)
+        shortest_array.append([shortest_i])
+    shortest = min(shortest_array)[0]
+    motion_1_emg_pre = np.zeros(shape=(30, shortest, 4))
+    motion_2_emg_pre = np.zeros(shape=(30, shortest, 4))
+    j = 0
+    for i in range(3):
+        run = data[i]
+        m1, m2 = getTaskExecutions(run, shortest)
+        for k in range(10):
+            motion_1_emg_pre[j] = m1[k]
+            motion_2_emg_pre[j] = m2[k]
+            j += 1
+    data_motion1 = np.zeros(shape=(1, 4))
+    data_motion2 = np.zeros(shape=(1, 4))
+
+    for i in range(30):
+        current = motion_1_emg_pre[i]
+        data_motion1 = np.vstack((data_motion1,current))
+        current = motion_2_emg_pre[i]
+        data_motion2 = np.vstack((data_motion2,current))
+
+    data_motion1 = data_motion1[1:,:]
+    data_motion2 = data_motion2[1:,:]
+    plt.psd(data_motion1[0] ** 2, 512)
+    plt.psd(data_motion2[0] ** 2, 512)
+    plt.legend(['hand flexion','hand extension'])
+
+    plt.xlabel('Frequency')
+    plt.ylabel('PSD(db)')
+    plt.title(label + 'PSD plot')
+    plt.show()
+
+
+
 def createClassifier(data, label):
     shortest_array = []
     for i in range(3):
@@ -145,9 +184,11 @@ def createClassifier(data, label):
     print(label + " SVM Accuracy:", metrics.accuracy_score(y_test.ravel(), y_pred))
 
 
-allData = [('p2_subject1Pre.mat', 'subject1Pre'),('p2_subject1Post.mat', 'subject1Post'),('p2_subject2Pre.mat', 'subject2Pre'),('p2_subject2Post.mat', 'subject2Post')]
+allData = [('p2_subject1Pre.mat', 'subject1Pre'), ('p2_subject1Post.mat', 'subject1Post'),
+           ('p2_subject2Pre.mat', 'subject2Pre'), ('p2_subject2Post.mat', 'subject2Post')]
 for i in range(len(allData)):
     subj1_post = loadmat(allData[i][0])
     data = subj1_post[allData[i][1]]
     data = data['MI'][0][0][0]
+    getPSD(data,allData[i][1])
     createClassifier(data, allData[i][1])
