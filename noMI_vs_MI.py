@@ -130,9 +130,30 @@ def custom_grapher(label_data, name, t_minus):
         plt.savefig(title + '.png')
         plt.show()
 
+def custom_grapher_2(label_data, name, t_minus, row_names):
+    fig, ax = plt.subplots(3, 4, figsize=(18, 10), constrained_layout=True)
+    labels = [x[0] for x in label_data]
+    lines = [(getAVG(x[1][0]), getAVG(x[1][1])) for x in label_data]
+
+    sensor_names = ('prox ext', 'dist ext', 'prox flx', 'dist flx')
+    for sens_idx in range(4):
+        for (l_i, line), lbls in zip(enumerate(lines), labels):
+            x = np.arange(len(line[0][sens_idx])) / fs
+            ax[l_i][sens_idx].plot(x, line[0][sens_idx], alpha=.7, label=lbls[0])
+            x = np.arange(0, len(line[1][sens_idx])) / fs
+            ax[l_i][sens_idx].plot(x, line[1][sens_idx], alpha=.7, label=lbls[1])
+            ax[l_i][sens_idx].set_title(f'{row_names[l_i]} {sensor_names[sens_idx]}')
+            ax[l_i][sens_idx].legend()
+            ax[l_i][sens_idx].axvline(x=t_minus, color='red', linestyle='--', alpha=.3)
+            ax[l_i][sens_idx].set_xlabel('Time (s)')
+            ax[l_i][sens_idx].set_ylabel('Voltage (µV)')
+    plt.suptitle(name)
+    plt.savefig(name + '.png')
+    plt.show()
+
+subj = 1
 
 ################### Load Pre ####################
-subj = 2
 prepost = 'Pre'
 
 # Extract all MEP's and put them in a matrix for comparison
@@ -180,7 +201,6 @@ MI_ext_emg_segs_pre = MI_ext_emg_segs
 
 
 ################### Load Post ####################
-subj = 2
 prepost = 'Post'
 
 # Extract all MEP's and put them in a matrix for comparison
@@ -226,15 +246,20 @@ noMI_emg_segs_post = noMI_emg_segs
 MI_flex_emg_segs_post = MI_flex_emg_segs
 MI_ext_emg_segs_post = MI_ext_emg_segs
 
-# 'No MI', 'Wrist Flexion MI', 'Wrist Extension MI'
-#
-#
-custom_grapher([('No MI Pre', noMI_emg_segs_pre),
-                ('No MI Post', noMI_emg_segs_post),
-                ], name='S2-No MI case Pre vs Post EMG MEPs -', t_minus=t_minus)
-custom_grapher([('Wrist Flexion MI Pre', MI_flex_emg_segs_pre),
-                 ('Wrist Flexion MI Post', MI_flex_emg_segs_post),
-                ], name='S2-Wrist Flexion Pre vs Post EMG MEPs -', t_minus=t_minus)
-custom_grapher([('Wrist Extension MI Pre', MI_ext_emg_segs_pre),
-                 ('Wrist Extension MI Post', MI_ext_emg_segs_post),
-                ], name='S2-Wrist Extension Pre vs Post EMG MEPs -', t_minus=t_minus)
+
+# custom_grapher([('No MI Pre', noMI_emg_segs_pre),
+#                 ('No MI Post', noMI_emg_segs_post),
+#                 ], name=f'S{subj}-No MI case Pre vs Post EMG MEPs -', t_minus=t_minus)
+# custom_grapher([('Wrist Flexion MI Pre', MI_flex_emg_segs_pre),
+#                  ('Wrist Flexion MI Post', MI_flex_emg_segs_post),
+#                 ], name=f'S{subj}-Wrist Flexion Pre vs Post EMG MEPs -', t_minus=t_minus)
+# custom_grapher([('Wrist Extension MI Pre', MI_ext_emg_segs_pre),
+#                  ('Wrist Extension MI Post', MI_ext_emg_segs_post),
+#                 ], name=f'S{subj}-Wrist Extension Pre vs Post EMG MEPs -', t_minus=t_minus)
+
+custom_grapher_2([(('No MI Pre', 'No MI Post'), (noMI_emg_segs_pre, noMI_emg_segs_post)),
+                  (('Flexion MI Pre', 'Flexion MI Post'), (MI_flex_emg_segs_pre, MI_flex_emg_segs_post)),
+                  (('Extension MI Pre', 'Extension MI Post'), (MI_ext_emg_segs_pre, MI_ext_emg_segs_post))
+                ], name=f'S{subj}- No MI vs MI, Pre vs Post EMG MEPs', t_minus=t_minus,
+                 row_names=('No MI', 'Wrist Flexion', 'Wrist Extension'))
+
