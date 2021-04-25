@@ -3,6 +3,15 @@ from scipy.signal import butter
 from scipy.signal import filtfilt
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.io import loadmat
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
+from xgboost import XGBClassifier
+from sklearn.svm import SVC
+from sklearn import metrics
 
 
 def extractFeats(signal):
@@ -22,7 +31,7 @@ def extractFeats(signal):
     # Wp = [fc1,fc2]
     # Wp = [element * 2 for element in Wp]
     # Wp = [element / 512 for element in Wp]
-    # signal = zscore(signal)
+    signal = zscore(signal)
     MAV_feature = np.zeros(shape=(length, 4))
     VAR_feature = np.zeros(shape=(length, 4))
     WL_feature = np.zeros(shape=(length, 4))
@@ -34,7 +43,81 @@ def extractFeats(signal):
         VAR_feature[i - 1] = (np.std(segment, axis=0)) ** 2
         WL_feature[i - 1] = np.sum(np.abs(np.diff(segment, axis=0)), axis=0)
     features = np.hstack((MAV_feature, VAR_feature, WL_feature))
+
     return features
+
+
+def getShortestRest(run):
+    emg = run['emg']
+    triggers = run['hdr']['triggers'][0][0]
+    indicies = np.array([i for i, x in enumerate(triggers) if x != 0])
+    shortest = np.inf
+    # for x in range(0, len(indicies)):
+    #     print(triggers[indicies[x]])
+    # print('hi-----------------')
+
+    for x in range(0, len(indicies)):
+        trig_val = triggers[indicies[x]]
+        trig_index = indicies[x]
+        if trig_val == 202 or trig_val == 102:
+            if x < (len(indicies) - 2):
+                trig_index_end = indicies[x + 2]
+                segment = emg[trig_index:trig_index_end]
+                if len(segment) < shortest:
+                    shortest = len(segment)
+            else:
+                break
+    return int(shortest - (.5 * 512))
+
+
+def getRestSegment(run, shortest):
+    emg = run['emg']
+    triggers = run['hdr']['triggers'][0][0]
+    indicies = np.array([i for i, x in enumerate(triggers) if x != 0])
+    indicies = indicies[3:]
+    master_1 = np.zeros(shape=(20, shortest, 4))
+    i = 0
+    for x in range(0, len(indicies)):
+        trig_val = triggers[indicies[x]]
+        trig_index = indicies[x]
+        if trig_val == 202 or trig_val == 102:
+            if x < (len(indicies) - 2):
+                trig_index_end = indicies[x + 2]
+                segment = emg[trig_index:trig_index_end]
+                segment = segment[int(.05 * 512):]
+                segment = segment[:shortest]
+                master_1[i] = segment
+                i += 1
+            else:
+                break
+    return master_1
+
+
+def getRest(data):
+    shortest_array = []
+    for i in range(3):
+        run = data[i]
+        shortest_i = getShortestRest(run)
+        shortest_array.append([shortest_i])
+    shortest = min(shortest_array)[0]
+
+    emg_rest = np.zeros(shape=(19 * 3, shortest, 4))
+    j = 0
+    for i in range(3):
+        run = data[i]
+        x = getRestSegment(run, shortest)
+        for k in range(19):
+            emg_rest[j] = x[k]
+            j += 1
+    data_rest = np.zeros(shape=(1, 4))
+
+    for i in range(19 * 3):
+        current = emg_rest[i]
+        data_rest = np.vstack((data_rest, current))
+
+    data_rest = data_rest[1:, :]
+
+    return data_rest
 
 
 def getTaskExecutions(run, shortest):
@@ -111,21 +194,22 @@ def getPSD(data, label):
 
     for i in range(30):
         current = motion_1_emg_pre[i]
-        data_motion1 = np.vstack((data_motion1,current))
+        data_motion1 = np.vstack((data_motion1, current))
         current = motion_2_emg_pre[i]
-        data_motion2 = np.vstack((data_motion2,current))
+        data_motion2 = np.vstack((data_motion2, current))
 
-    data_motion1 = data_motion1[1:,:]
-    data_motion2 = data_motion2[1:,:]
-    plt.psd(data_motion1[0] ** 2, 512)
-    plt.psd(data_motion2[0] ** 2, 512)
-    plt.legend(['hand flexion','hand extension'])
+    data_motion1 = data_motion1[1:, :]
+    data_motion2 = data_motion2[1:, :]
+    data_rest = getRest(data)
+    plt.psd(data_motion1[0] ** 2, Fs=512)
+    plt.psd(data_motion2[0] ** 2, Fs=512)
+    plt.psd(data_rest[0] ** 2, Fs=512)
+    plt.legend(['hand flexion', 'hand extension', 'rest'])
 
     plt.xlabel('Frequency')
     plt.ylabel('PSD(db)')
     plt.title(label + 'PSD plot')
     plt.show()
-
 
 
 def createClassifier(data, label):
@@ -146,6 +230,22 @@ def createClassifier(data, label):
             motion_1_emg_pre[j] = m1[k]
             motion_2_emg_pre[j] = m2[k]
             j += 1
+
+    emg_rest = np.zeros(shape=(19 * 3, shortest, 4))
+    j = 0
+    for i in range(3):
+        run = data[i]
+        x = getRestSegment(run, shortest)
+        for k in range(19):
+            emg_rest[j] = x[k]
+            j += 1
+    features_rest = np.zeros(shape=(1, 12))
+
+    for i in range(19*3):
+        feature_rest_i = extractFeats(emg_rest[i])
+        features_rest = np.vstack((features_rest,feature_rest_i))
+
+
     features_motion1 = np.zeros(shape=(1, 12))
     features_motion2 = np.zeros(shape=(1, 12))
 
@@ -158,6 +258,7 @@ def createClassifier(data, label):
 
     features_motion1 = features_motion1[1:, :]
     features_motion2 = features_motion2[1:, :]
+    features_rest = features_rest[1:,:]
 
     targetValue = np.zeros(shape=(features_motion1.shape[0], 1))
     for i in range(len(targetValue)):
@@ -166,22 +267,49 @@ def createClassifier(data, label):
     for i in range(len(targetValue)):
         targetValue[i] = int(2)
     features_motion2 = np.hstack((features_motion2, targetValue))
-    data = np.vstack((features_motion1, features_motion2))
+    targetValue = np.zeros(shape=(features_rest.shape[0], 1))
+    features_rest = np.hstack((features_rest,targetValue))
+    data = np.vstack((features_motion1, features_motion2,features_rest))
 
     # make classifier now
     from sklearn.model_selection import train_test_split
 
     X = data[:, :12]
     y = data[:, 12:]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    y_train = y_train.ravel()
+    y_test = y_test.ravel()
 
-    from sklearn.svm import SVC
-    from sklearn import metrics
+    HYPERPARAMS = dict(
+        objective='binary:logistic',
+        seed=128,
+        use_label_encoder=False,
+        eval_metric='logloss'
+    )
 
-    model = SVC(kernel='poly', C=2500)
-    model.fit(X_train, y_train.ravel())
-    y_pred = model.predict(X_test)
-    print(label + " SVM Accuracy:", metrics.accuracy_score(y_test.ravel(), y_pred))
+    xgb_params_WL = {'colsample_bytree': 0.72, 'learning_rate': 0.14028621462596344, 'alpha': 0.0268,
+                     'n_estimators': 124,
+                     'max_depth': 2, 'min_child_weight': 4}
+
+    model1 = XGBClassifier(**xgb_params_WL, **HYPERPARAMS)
+    model2 = LinearDiscriminantAnalysis()
+    model3 = QuadraticDiscriminantAnalysis()
+    model4 = DecisionTreeClassifier()
+    model5 = SVC(kernel='poly', C=2500)
+    model6 = GaussianNB()
+
+    models = [model1, model2, model3, model4, model5, model6]
+    model_names = ['XGB ', 'LDA ', 'QDA ', 'DT  ', 'SVM KERNAl(POLY)', 'NB  ']
+    test_accs = []
+    print(f'Training models for dataset {label}')
+    for m in models:
+        m.fit(X_train, y_train)
+        y_pred = m.predict(X_test)
+        acc = metrics.accuracy_score(y_test, y_pred)
+        test_accs.append(acc)
+    for i, name in enumerate(model_names):
+        print(f'{name} Accuracy: {test_accs[i]*100}%')
+    print()
 
 
 allData = [('p2_subject1Pre.mat', 'subject1Pre'), ('p2_subject1Post.mat', 'subject1Post'),
@@ -190,5 +318,5 @@ for i in range(len(allData)):
     subj1_post = loadmat(allData[i][0])
     data = subj1_post[allData[i][1]]
     data = data['MI'][0][0][0]
-    getPSD(data,allData[i][1])
+    # getPSD(data, allData[i][1])
     createClassifier(data, allData[i][1])
