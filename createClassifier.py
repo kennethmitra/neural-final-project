@@ -12,6 +12,7 @@ from sklearn.naive_bayes import GaussianNB
 from xgboost import XGBClassifier
 from sklearn.svm import SVC
 from sklearn import metrics
+from sklearn import tree
 
 
 def extractFeats(signal):
@@ -243,7 +244,7 @@ def createClassifier(data, label):
 
     for i in range(19*3):
         feature_rest_i = extractFeats(emg_rest[i])
-        features_rest = np.vstack((features_rest,feature_rest_i))
+        features_rest = np.vstack((features_rest, feature_rest_i))
 
 
     features_motion1 = np.zeros(shape=(1, 12))
@@ -258,7 +259,7 @@ def createClassifier(data, label):
 
     features_motion1 = features_motion1[1:, :]
     features_motion2 = features_motion2[1:, :]
-    features_rest = features_rest[1:,:]
+    features_rest = features_rest[1:, :]
 
     targetValue = np.zeros(shape=(features_motion1.shape[0], 1))
     for i in range(len(targetValue)):
@@ -268,7 +269,7 @@ def createClassifier(data, label):
         targetValue[i] = int(2)
     features_motion2 = np.hstack((features_motion2, targetValue))
     targetValue = np.zeros(shape=(features_rest.shape[0], 1))
-    features_rest = np.hstack((features_rest,targetValue))
+    features_rest = np.hstack((features_rest, targetValue))
     data = np.vstack((features_motion1, features_motion2,features_rest))
 
     # make classifier now
@@ -310,6 +311,11 @@ def createClassifier(data, label):
     for i, name in enumerate(model_names):
         print(f'{name} Accuracy: {test_accs[i]*100}%')
     print()
+
+    feature_names=['MAV_prox ext', 'MAV_dist ext', 'MAV_prox flx', 'MAV_dist flx',
+                   'VAR_prox ext', 'VAR_dist ext', 'VAR_prox flx', 'VAR_dist flx',
+                   'WL_prox ext', 'WL_dist ext', 'WL_prox flx', 'WL_dist flx']
+    tree.plot_tree(decision_tree=model4, impurity=True, proportion=True, filled=True, feature_names=feature_names)
 
 
 allData = [('p2_subject1Pre.mat', 'subject1Pre'), ('p2_subject1Post.mat', 'subject1Post'),

@@ -6,8 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 EPSILON = 1e-12
-# fs = 512
-
 # 1 second = 512 samples
 
 def _process(run, apply_filter=False):
@@ -57,6 +55,7 @@ def process(subject, session, apply_filter=False):
             j += 1
 
     plot_spectrum(motion_1_eeg, motion_2_eeg, subject, session, apply_filter)
+    plot_spectrum_before_after_tms(motion_1_eeg, motion_2_eeg, subject, session, apply_filter)
 
     np.save('subject{}{}_motion_1_eeg.npy'.format(str(subject), session), motion_1_eeg)
     np.save('subject{}{}_motion_2_eeg.npy'.format(str(subject), session), motion_2_eeg)
@@ -88,11 +87,95 @@ def plot_spectrum(motion_1_eeg, motion_2_eeg, subject, session, apply_filter):
         plt.close()
 
 
+def plot_spectrum_before_after_tms(motion_1_eeg, motion_2_eeg, subject, session, apply_filter):
+    if session == 'Pre':
+        _session = 1
+    elif session == 'Post':
+        _session = 3
+    
+    for i in range(motion_1_eeg.shape[-1]):
+        _motion_1_eeg = motion_1_eeg[:, :, i]
+        _motion_2_eeg = motion_2_eeg[:, :, i]
+        avg_motion_1_eeg = np.mean(_motion_1_eeg, axis=0)
+        avg_motion_2_eeg = np.mean(_motion_2_eeg, axis=0)
+
+        avg_motion_1_eeg_before_tms = avg_motion_1_eeg[:2560]
+        avg_motion_1_eeg_after_tms = avg_motion_1_eeg[2560:]
+        avg_motion_2_eeg_before_tms = avg_motion_2_eeg[:2560]
+        avg_motion_2_eeg_after_tms = avg_motion_2_eeg[2560:]
+
+        fig, (ax1, ax2) = plt.subplots(2)
+        fig.suptitle('Subject {} Session {} Hand Flexion EEG Channel {}'.format(str(subject), str(_session), str(i)))
+
+        ax1.psd(avg_motion_1_eeg_before_tms, Fs=512)
+        ax2.psd(avg_motion_1_eeg_after_tms, Fs=512)
+        ax1.set_title('Before TMS')
+        ax2.set_title('After TMS')
+        fig.subplots_adjust(hspace=0.8)
+        fig_name = 'subject_{}_session_{}_channel_{}_eeg_flexion_tms_psd'.format(str(subject), str(_session), str(i))
+        if apply_filter:
+            fig_name += '_bandpass_filtered'
+        plt.savefig(fig_name)
+        plt.close()
+
+        fig, (ax1, ax2) = plt.subplots(2)
+        fig.suptitle('Subject {} Session {} Hand Flexion EEG Channel {}'.format(str(subject), str(_session), str(i)))
+
+        ax1.psd(avg_motion_2_eeg_before_tms, Fs=512)
+        ax2.psd(avg_motion_2_eeg_after_tms, Fs=512)
+        ax1.set_title('Before TMS')
+        ax2.set_title('After TMS')
+        fig.subplots_adjust(hspace=0.8)
+        fig_name = 'subject_{}_session_{}_channel_{}_eeg_extension_tms_psd'.format(str(subject), str(_session), str(i))
+        if apply_filter:
+            fig_name += '_bandpass_filtered'
+        plt.savefig(fig_name)
+        plt.close()
+
+
+def plot_spectrum_session(subject, motion):
+
+    session1_filename = 'subject{}Pre_motion_{}_eeg.npy'.format(str(subject), str(motion))
+    session3_filename = 'subject{}Post_motion_{}_eeg.npy'.format(str(subject), str(motion))    
+
+    session1_eeg = np.load(session1_filename)
+    session3_eeg = np.load(session3_filename)
+
+    avg_session1_eeg = np.mean(session1_eeg, axis=0)
+    avg_session3_eeg = np.mean(session3_eeg, axis=0)
+
+    if motion == 1:
+        motion_name = 'Flexion'
+    elif motion == 2:
+        motion_name = 'Extension'
+
+    for i in range(motion_1_eeg.shape[-1]):
+        _avg_session1_eeg = avg_session1_eeg[:, i]
+        _avg_session3_eeg = avg_session3_eeg[:, i]
+
+        fig, (ax1, ax2) = plt.subplots(2)
+        fig.suptitle('Subject {} Hand {} EEG Channel {}'.format(str(subject), motion_name, str(i)))
+
+        ax1.psd(_avg_session1_eeg, Fs=512)
+        ax2.psd(_avg_session3_eeg, Fs=512)
+        ax1.set_title('Session 1 (Before FES)')
+        ax2.set_title('Session 3 (After FES)')
+        fig.subplots_adjust(hspace=0.8)
+        fig_name = 'subject_{}_eeg_{}_channel_{}_psd'.format(str(subject), motion_name.lower(), str(i))
+        plt.savefig(fig_name)
+        plt.close()
+
+
 def main():
     process(1, 'Pre')
     process(2, 'Pre')
     process(1, 'Post')
     process(2, 'Post')
+
+    plot_spectrum_session(1, 1)
+    plot_spectrum_session(1, 2)
+    plot_spectrum_session(2, 1)
+    plot_spectrum_session(2, 2)
 
 
 if __name__ == "__main__":
