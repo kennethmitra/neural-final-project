@@ -111,11 +111,33 @@ def fourG(noMI_emg_segs, MI_flex_emg_segs, MI_ext_emg_segs, name, t_minus):
         plt.savefig(title + '.png')
         plt.show()
 
+def custom_grapher(label_data, name, t_minus):
 
+    labels = [x[0] for x in label_data]
+    lines = [getAVG(x[1]) for x in label_data]
+
+    sensor_names = ('prox ext', 'dist ext', 'prox flx', 'dist flx')
+    for sens_idx in range(4):
+        x = np.arange(0, len(lines[0][1])) / fs
+        for line in lines:
+            plt.plot(x, line[sens_idx], alpha=.7)
+        plt.axvline(x=t_minus, color='red', linestyle='--', alpha=.3)
+        title = name + f' {sensor_names[sens_idx]} grand averages'
+        plt.title(title)
+        plt.legend(labels)
+        plt.xlabel('Time (s)')
+        plt.ylabel('Voltage (µV)')
+        plt.savefig(title + '.png')
+        plt.show()
+
+
+################### Load Pre ####################
+subj = 2
+prepost = 'Pre'
 
 # Extract all MEP's and put them in a matrix for comparison
-subj1_pre = loadmat('p2_subject1Pre.mat')
-data = subj1_pre['subject1Pre']
+subj1_pre = loadmat(f'p2_subject{subj}{prepost}.mat')
+data = subj1_pre[f'subject{subj}{prepost}']
 MI_data = data['MI'][0][0][0]
 
 ###################################
@@ -151,4 +173,68 @@ print(noMI_emg_segs.shape)
 
 # Average them
 print("----- Averages -----")
-fourG(noMI_emg_segs, MI_flex_emg_segs, MI_ext_emg_segs, name='EMG MEPs No MI vs MI -', t_minus=t_minus)
+#fourG(noMI_emg_segs, MI_flex_emg_segs, MI_ext_emg_segs, name='S2-Post EMG MEPs No MI vs MI -', t_minus=t_minus)
+noMI_emg_segs_pre = noMI_emg_segs
+MI_flex_emg_segs_pre = MI_flex_emg_segs
+MI_ext_emg_segs_pre = MI_ext_emg_segs
+
+
+################### Load Post ####################
+subj = 2
+prepost = 'Post'
+
+# Extract all MEP's and put them in a matrix for comparison
+subj1_pre = loadmat(f'p2_subject{subj}{prepost}.mat')
+data = subj1_pre[f'subject{subj}{prepost}']
+MI_data = data['MI'][0][0][0]
+
+###################################
+# Zoomed in Analysis of MEP region
+###################################
+
+# Extract Segments from the MI case (-0.5 sec to 0.5 sec after TMS)
+t_minus = 0.5
+t_plus = 0.5
+fs = 512
+calcLen = lambda a, b: round(a + b) * fs
+
+MI_flex_emg_segs = np.zeros(shape=(30, calcLen(t_minus, t_plus), 4))
+MI_ext_emg_segs = np.zeros(shape=(30, calcLen(t_minus, t_plus), 4))
+segment_idx = 0
+for run_idx in range(3):
+    run = MI_data[run_idx]
+    m1, m2 = extractSegments_MI(run, t_minus, t_plus)
+    for k in range(10):
+        MI_flex_emg_segs[segment_idx] = m1[k]
+        MI_ext_emg_segs[segment_idx] = m2[k]
+        segment_idx += 1
+
+print(MI_ext_emg_segs.shape)
+
+# Extract segments from the no MI case (-0.5 sec to 0.5 sec after TMS)
+MI_emg_segs = np.zeros(shape=(80, calcLen(t_minus, t_plus), 4))
+
+noMI_data = data['noMI'][0][0][0]
+run = noMI_data[0]
+noMI_emg_segs = extractSegments_noMI(run, t_minus, t_plus)
+print(noMI_emg_segs.shape)
+
+# Average them
+print("----- Averages -----")
+#fourG(noMI_emg_segs, MI_flex_emg_segs, MI_ext_emg_segs, name='S2-Post EMG MEPs No MI vs MI -', t_minus=t_minus)
+noMI_emg_segs_post = noMI_emg_segs
+MI_flex_emg_segs_post = MI_flex_emg_segs
+MI_ext_emg_segs_post = MI_ext_emg_segs
+
+# 'No MI', 'Wrist Flexion MI', 'Wrist Extension MI'
+#
+#
+custom_grapher([('No MI Pre', noMI_emg_segs_pre),
+                ('No MI Post', noMI_emg_segs_post),
+                ], name='S2-No MI case Pre vs Post EMG MEPs -', t_minus=t_minus)
+custom_grapher([('Wrist Flexion MI Pre', MI_flex_emg_segs_pre),
+                 ('Wrist Flexion MI Post', MI_flex_emg_segs_post),
+                ], name='S2-Wrist Flexion Pre vs Post EMG MEPs -', t_minus=t_minus)
+custom_grapher([('Wrist Extension MI Pre', MI_ext_emg_segs_pre),
+                 ('Wrist Extension MI Post', MI_ext_emg_segs_post),
+                ], name='S2-Wrist Extension Pre vs Post EMG MEPs -', t_minus=t_minus)
