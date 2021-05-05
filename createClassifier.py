@@ -12,8 +12,7 @@ from sklearn.naive_bayes import GaussianNB
 from xgboost import XGBClassifier
 from sklearn.svm import SVC
 from sklearn import metrics
-from sklearn import tree
-
+from sklearn.neural_network import MLPClassifier
 
 def extractFeats(signal):
     WSize = .300
@@ -244,7 +243,7 @@ def createClassifier(data, label):
 
     for i in range(19*3):
         feature_rest_i = extractFeats(emg_rest[i])
-        features_rest = np.vstack((features_rest, feature_rest_i))
+        features_rest = np.vstack((features_rest,feature_rest_i))
 
 
     features_motion1 = np.zeros(shape=(1, 12))
@@ -259,7 +258,7 @@ def createClassifier(data, label):
 
     features_motion1 = features_motion1[1:, :]
     features_motion2 = features_motion2[1:, :]
-    features_rest = features_rest[1:, :]
+    features_rest = features_rest[1:,:]
 
     targetValue = np.zeros(shape=(features_motion1.shape[0], 1))
     for i in range(len(targetValue)):
@@ -269,15 +268,22 @@ def createClassifier(data, label):
         targetValue[i] = int(2)
     features_motion2 = np.hstack((features_motion2, targetValue))
     targetValue = np.zeros(shape=(features_rest.shape[0], 1))
-    features_rest = np.hstack((features_rest, targetValue))
-    data = np.vstack((features_motion1, features_motion2,features_rest))
-
+    features_rest = np.hstack((features_rest,targetValue))
+    a = features_motion1[:2*(features_motion1.shape[0]) // 3, :]
+    b = features_motion2[:2*(features_motion2.shape[0]) //3,:]
+    c = features_rest[:2*(features_rest.shape[0])//3,:]
+    train_data = np.vstack((a,b ,c))
+    X_train = train_data[:,:12]
+    y_train = train_data[:, 12:]
+    a = features_motion1[2 * (features_motion1.shape[0]) // 3:, :]
+    b = features_motion2[2 * (features_motion2.shape[0]) // 3:, :]
+    c = features_rest[2 * (features_rest.shape[0]) // 3:, :]
+    test_data = np.vstack((a,b ,c))
+    X_test = test_data[:,:12]
+    y_test = test_data[:, 12:]
     # make classifier now
     from sklearn.model_selection import train_test_split
 
-    X = data[:, :12]
-    y = data[:, 12:]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     y_train = y_train.ravel()
     y_test = y_test.ravel()
 
@@ -298,9 +304,9 @@ def createClassifier(data, label):
     model4 = DecisionTreeClassifier()
     model5 = SVC(kernel='poly', C=2500)
     model6 = GaussianNB()
-
-    models = [model1, model2, model3, model4, model5, model6]
-    model_names = ['XGB ', 'LDA ', 'QDA ', 'DT  ', 'SVM KERNAl(POLY)', 'NB  ']
+    model7 = MLPClassifier(random_state=1, max_iter=800, hidden_layer_sizes=(100, 100, 100,100),solver='adam',learning_rate_init=.01,n_iter_no_change=100)
+    models = [model1, model2, model3, model4, model5, model6, model7]
+    model_names = ['XGB ', 'LDA ', 'QDA ', 'DT  ', 'SVM KERNAl(POLY)', 'NB  ', 'Neural Net ']
     test_accs = []
     print(f'Training models for dataset {label}')
     for m in models:
@@ -310,12 +316,9 @@ def createClassifier(data, label):
         test_accs.append(acc)
     for i, name in enumerate(model_names):
         print(f'{name} Accuracy: {test_accs[i]*100}%')
+    avg = sum(test_accs)/len(test_accs)
+    print(f'Average Accuracies: {avg *100} %')
     print()
-
-    feature_names=['MAV_prox ext', 'MAV_dist ext', 'MAV_prox flx', 'MAV_dist flx',
-                   'VAR_prox ext', 'VAR_dist ext', 'VAR_prox flx', 'VAR_dist flx',
-                   'WL_prox ext', 'WL_dist ext', 'WL_prox flx', 'WL_dist flx']
-    tree.plot_tree(decision_tree=model4, impurity=True, proportion=True, filled=True, feature_names=feature_names)
 
 
 allData = [('p2_subject1Pre.mat', 'subject1Pre'), ('p2_subject1Post.mat', 'subject1Post'),
